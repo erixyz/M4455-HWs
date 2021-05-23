@@ -1,0 +1,63 @@
+---
+title: "Math 445 HW 3"
+author: "Erick Castillo"
+date: "2/23/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+```{r, echo = FALSE}
+krab = crabdata <- read.table("~/M445_HW/crabdata.txt", quote="\"", comment.char="")
+colnames(krab)=c("Obs","C","S","W","Wt","Sa")
+krab <- subset(krab, select = -Obs)
+attach(krab)
+```
+\textbf{Question 1:} Fit a Negative Binomial Regression model with Sa as a response variable and all other variables as predictors:
+```{r, echo=FALSE}
+library(MASS)
+library(ggplot2)
+library(foreign)
+```
+```{r}
+nb.mod1 = glm.nb(Sa~factor(C)+factor(S)+W+Wt)
+summary(nb.mod1)
+```
+\newpage
+\textbf{Question 2:} Find the AIC and the BIC of this model, compare with the Poisson model from the prior assignment. Which is the better model?
+```{r}
+AIC(nb.mod1)
+BIC(nb.mod1)
+poiss.mod2 = glm(Sa~factor(C)+factor(S)+W+Wt, family = 'poisson')
+AIC(poiss.mod2)
+BIC(poiss.mod2)
+```
+Comparing both the AIC and BIC of each model shows me that the better model to fit the data would be the negative binomial fit.\
+
+\textbf{Question 3:} Using the full NB model, test whether S is significant. Write down the null and alternative hypothesis, the test statistic, and the p-value.
+```{r}
+nb.mod2 = glm.nb(Sa~factor(C)+W+Wt)
+anova(nb.mod1, nb.mod2)
+```
+The null hypothesis is $H_0: \beta_{factor(C)} = 0$ and the alternative hypothesis is $H_A: \beta_{factor(C)} \neq 0$. The test statistic is given to be $\approx 0.5888$, while the p-value is $0.74498$. In this case, because the p-value is very high, therefore I will fail to reject $H_0$.\
+\newpage
+\textbf{Question 4:} Test the hypothesis that the variable C and S are not significant at the same time using the LRT. Once again write down the null and alternative hypotheses, the test statistic, and the p-value.
+```{r}
+nb.mod3 = glm.nb(Sa~W+Wt)
+anova(nb.mod1, nb.mod3)
+```
+The null hypothesis is $H_0: \beta_{factor(C)}=\beta_{factor(S)}=0$ while the alternative hypothesis is $H_A:$ either $\beta_{factor(C)}\neq 0$ or $\beta_{factor(S)}\neq 0$. The test statistic is given by $\approx 3.253$ while the p-value is $\approx 0.661$. Based on the high p-value, I can conclude that I must fail to reject $H_0$., that is, both of the set of dummies are not significant in the model.\
+
+\textbf{Question 5:} Compute confidence intervals for the coefficients of each predictor.
+```{r}
+confint(nb.mod1)
+```
+
+
+
+
+
+

@@ -1,0 +1,82 @@
+---
+title: "M445 HW 7"
+author: "Erick Castillo"
+date: "4/2/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+library(MASS)
+library(tidyverse)
+library(caret)
+library(randomForest)
+```
+
+The following chunk of code displays how I prepared the Titanic dataset for this assignment.
+```{r echo = T, results = 'hide'}
+df = Titanic <- read.csv("~/M445_HW/Titanic.csv")
+
+df = subset(df, select = c('Pclass', 'Sex', 'Age', 
+                           'SibSp', 'Parch', 'Fare',
+                           'Embarked', 'Survived')) 
+summary(df) #177 missing values come from Age
+
+df$Sex <- ifelse(df$Sex == 'male', 1, 0)
+df$Age <- ifelse(is.na(df$Age), round(mean(df$Age, na.rm = TRUE)), round(df$Age))
+df = df[!(df$Embarked==""), ] #drop empty strings
+df$Embarked <- as.factor(df$Embarked)
+
+#train-test split of the data:
+smp_size <- floor(0.70 * nrow(df))
+set.seed(505)
+train_ind <- sample(seq_len(nrow(df)), size = smp_size)
+
+train <- df[train_ind, ]
+test <- df[-train_ind, ]
+```
+\newpage
+
+\textbf{A.} Build a classification model using LDA.
+```{r}
+lda.mod = lda((Survived~.), data = train)
+lda.pred <- lda.mod %>% predict(test)
+compare1 = data.frame(test$Survived, lda.pred$class)
+confusionMatrix(as.factor(lda.pred$class), as.factor(test$Survived))
+```
+
+The above is the output for the confusion matrix associated with the LDA model. It has a relatively high accuracy.\
+\
+\textbf{B.} Create a classification model with QDA. Compare these results with the LDA confusion matrix output.
+```{r}
+qda.mod = qda((Survived~.), data = train)
+qda.pred <- predict(qda.mod, test)
+compare2 = data.frame(test$Survived, qda.pred$class)
+confusionMatrix(as.factor(qda.pred$class), as.factor(test$Survived))
+```
+
+Utilizing a QDA model lowers the accuracy when compared to the LDA model. The p-value of the McNemar test increased in this case compared to the LDA model. The same conclusion would be reached regardless, but the strength of the evidence in favor of the $H_0$ increased.\
+\
+\textbf{C.} Create a classification model using logistic regression analysis.
+```{r}
+log.mod <- glm(Survived~., family=binomial(link = 'cloglog'), data = train)
+pred1 <- predict.glm(log.mod, newdata = test, type = 'response')
+pred1 <- ifelse(pred1 < 0.57, 0, 1)
+confusionMatrix(as.factor(pred1), as.factor(test$Survived))
+```
+
+The accuracy in this case is slightly higher than both those seen in LDA and QDA. This indicates this is a slightly better model at predicting the survival of passengers. \
+\
+\textbf{D.} Create predictions through the use of a random forest.
+```{r}
+rf_classifier = randomForest(factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked, data=train, ntree=100, mtry=2, importance=TRUE)
+
+test_set_predictors = select(test, -Survived)
+prediction_for_table <- predict(rf_classifier, test_set_predictors) 
+confusionMatrix(as.factor(test$Survived), as.factor(prediction_for_table))
+```
+
+The above output states that the random forest model has an accuracy of $83.52\%$. This is slightly better than the logistic model and both LDA and QDA. This would be my preferred method of classification.

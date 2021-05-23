@@ -1,0 +1,65 @@
+---
+title: "M445 HW 6"
+author: "Erick Castillo"
+date: "3/26/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\textbf{Problem 2:} Recall that the LDA method requires that the data is normally distributed. This can be checked with QQ-plots.
+
+```{r, include=FALSE,echo=FALSE}
+library(MASS)
+library(tidyverse)
+library(caret)
+```
+```{r, echo = FALSE}
+#train/test split of the last five rows.
+train <- iris[-c(146,147,148,149,150), ]
+test <- iris[c(146,147,148,149,150), ]
+
+par(mfrow=c(2,2))
+qqnorm(train$Sepal.Length)
+abline(0,1)
+
+qqnorm(train$Sepal.Width)
+abline(0,1)
+
+qqnorm(train$Petal.Length)
+abline(0,1)
+
+qqnorm(train$Petal.Width)
+abline(0,1)
+```
+
+The data does not appear to align with the quantiles of the normal distribution. Therefore, the data must be transformed. This is done in the following block of code. The first line of code simply standardizes the data to be more inline with the quantiles of $N(0,1)$ by taking the difference of a value by the mean of the row (using the center method), then dividing by the standard deviation of the row (using the scale method). LDA is also implemented and used to make predictions:
+```{r}
+#preprocessing method must be declared to transform the data.
+preproc.parameter <- train %>% 
+  preProcess(method = c("center", "scale"))
+
+#here data is transformed from multivariate to univariate observations.
+traintrans <- preproc.parameter %>% predict(train)
+testtrans <- preproc.parameter %>% predict(test)
+
+#the model is then declared. predictions are derived from such a model.
+lda.mod = lda((factor(Species)~.), data = traintrans)
+lda.pred <- lda.mod %>% predict(testtrans)
+lda.pred
+data.frame(orig_data = test$Species, pred_vals= lda.pred$class)
+```
+
+Notice that the predictions made on the test set of the last five variables show that there is a very high chance that these values are virginicas. This is most certainly the case, so this model worked very well.\
+\
+The following code uses the QDA method of classification utilizing the same train and test split from the code above. This method does not require the preprocessing method used before.
+```{r}
+qda.mod = qda((Species~.), data = train)
+qda.pred <- predict(qda.mod, test)
+qda.pred
+data.frame(orig_data = test$Species, pred_vals= qda.pred$class)
+```
+
+This method was able to classify all the test values accurately. Do note that the percentages in this table are slightly smaller than the percentages seen in the LDA method.

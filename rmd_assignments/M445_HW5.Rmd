@@ -1,0 +1,90 @@
+---
+title: "Math 445 HW 5"
+author: "Erick Castillo"
+date: "3/12/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,echo=FALSE,include=FALSE}
+boat = Titanic <- read.csv("~/M445_HW/Titanic.csv")
+attach(boat)
+boat = na.omit(subset(boat, select = -c(Cabin)))
+boat$Embarked <- ifelse(boat$Embarked == "", NA, boat$Embarked)
+boat = na.omit(boat)
+
+pred.cols = data.frame(Pclass,Sex,Age,SibSp,Parch,Fare,Embarked)
+detach(boat)
+pred.cols = na.omit(pred.cols)
+pred.cols$Embarked <- ifelse(pred.cols$Embarked == "", NA, pred.cols$Embarked)
+pred.cols = na.omit(pred.cols)
+pred.cols$Sex <- ifelse(pred.cols$Sex == "male", 1, 0)
+```
+
+```{r, echo=FALSE, include=FALSE}
+attach(pred.cols)
+for (i in seq_along(pred.cols$Embarked)){
+  if (Embarked[i]=="S"){
+    Embarked[i] = 1
+  }
+  if (Embarked[i]=="C"){
+    Embarked[i] = 2
+  }
+  if (Embarked[i]=="Q"){
+    Embarked[i] = 3
+  }
+}
+
+pred.cols$Embarked <- Embarked
+pred.cols$Embarked <- as.integer(pred.cols$Embarked)
+
+library(fastDummies)
+pred.cols <- dummy_cols(pred.cols, select_columns = c("Embarked"))
+pred.cols = subset(pred.cols,select = -c(Embarked))
+```
+
+\textbf{Problem 1:} Use a model based clustering method to cluster the data in the Titanic dataset. Compare the results with the methods used in the prior HW.
+```{r, out.width="60%", out.height="60%", fig.align = "center", echo = FALSE, include=FALSE}
+library(mclust) 
+library(cluster)
+
+class <- boat$Survived
+table(class)
+
+clPairs(pred.cols, class)
+BIC = mclustBIC(pred.cols)
+mod1 = Mclust(pred.cols, x=BIC, G=2)
+summary(mod1, parameters = TRUE)
+plot(mod1, what = "classification")
+
+```
+
+```{r}
+BIC = mclustBIC(pred.cols)
+mod1 = Mclust(pred.cols, x=BIC, G=2)
+
+try1 = ifelse(mod1$classification == 1, 1, 0)
+try2 = ifelse(mod1$classification == 1, 0, 1)
+
+sum(abs(boat$Survived-try1))
+sum(abs(boat$Survived-try2))
+```
+
+Notice that this method of clustering scored worse than the methods used on the prior HW. Here, the correct number of values that got clustered was 401. This is smaller than kmeans, divisive, and agglomerative which got scores of 446, 427, and 427 respectively. \
+\
+\textbf{Problem 2:} Use Ward's hierarchical clustering method. Compare to the other methods.
+```{r}
+wardclust = hclust(dist(pred.cols), method = "ward.D")
+ward = cutree(wardclust, k = 2)
+
+try1 = ifelse(ward == 1, 1, 0)
+try2 = ifelse(ward == 1, 0, 1)
+
+sum(abs(boat$Survived-try1))
+sum(abs(boat$Survived-try2))
+```
+
+This Ward's hierarchical clustering got the best clustering score of all prior 5 methods. This method was able to correctly cluster 471 values. All other methods scored values less than this.

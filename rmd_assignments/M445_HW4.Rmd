@@ -1,0 +1,200 @@
+---
+title: "Math 445 HW 4"
+author: "Erick Castillo"
+date: "3/6/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\textbf{Question 1:}
+```{r,out.width="50%",out.height="50%",echo=FALSE}
+set.seed(1)
+n = 500
+p1 = 0.3
+lambda = 3 
+r = 4
+p = 0.3
+
+rzipois =  function(size, lambda, p){
+  mysample <- rep(NA,size)
+  for(i in 1:size){
+    temp = runif(1)
+    if(temp<=p){
+      mysample[i] <- 0}
+    else{
+      mysample[i] <- rpois(1,lambda)}  
+    }  
+  return(mysample)}
+
+M0 = rpois(n, lambda)
+M1 = rzipois(n, lambda, p1)
+M2 = rnbinom(n, size = r, prob = 1-p)
+
+hist(M0)
+hist(M1)
+hist(M2)
+```
+
+From the above output it is apparent that the Poisson distribution has the least amount of zeros. It isn't immediately obvious unless the code sort(M0) is executed, but there's only $12$ zeros in the Poisson random sample.\
+\
+The following two graphs are slightly difficult to compare as there are a large collection of values on the left end of the histogram; however using sort(M1) and sort(M2) will show that the ZIP random sample (M1) has a larger collection of zeros than that of the negative binomial random sample (M2). This is expected.
+\newpage
+\textbf{Problem 2:} 
+```{r,echo=FALSE,include=FALSE}
+rzipois =  function(size, lambda, p){  
+  mysample <- rep(NA,size) 
+  for(i in 1:size){   
+    temp = runif(1)  
+    if(temp <= p[i]){   
+      mysample[i] <- 0    
+    }else{  
+      mysample[i] <- rpois(1,lambda[i]) 
+    } 
+  }  
+  return(mysample)
+}
+x1 = runif(n)
+x2 = runif(n)
+lambda = exp(2 + 3*x1 + 0.5*x2)
+pi = exp(1 - x1)/(1 + exp(1 - x1))
+y = rzipois(n, lambda, pi)
+
+
+x1 = runif(n)
+x2 = runif(n)
+
+lambda = exp(2 + 3*x1 + 0.5*x2)
+pi = exp(1 - x1)/(1 + exp(1 - x1))
+y = rzipois(n, lambda, pi)
+```
+
+```{r,echo=FALSE}
+library(pscl)
+mod1 = zeroinfl(y~x1+x2|x1+x2)
+summary(mod1)
+AIC(mod1)
+```
+
+A. The above is the output of a ZIP model fit with x1 and x2 as links to both lambda and pi. It is clear that the coefficients estimated in this model are all significant at a $1\%$ level, and that they are all very close to the true values set prior to running this model. The only value that is not significant is the x2 coefficient found in the pi link. This should be the case.
+```{r,echo=FALSE}
+library(pscl)
+mod2 = zeroinfl(y~x1+x2|x1)
+summary(mod2)
+AIC(mod2)
+```
+
+B. The above is the output of the ZIP model being performed with x1 and x2 present in the lambda link, and only x1 being present in the pi link. Notice that all the values are very significant in the model, and that the coefficients are very close to their true values.
+```{r,echo=FALSE}
+library(pscl)
+mod3 = zeroinfl(y~x1|x1)
+summary(mod3)
+AIC(mod3)
+```
+
+C. This is the final ZIP model asked to be performed on the data. The values in the pi link of the model are very close to the values declared earlier. Notice that the intercept and x1 for the lambda link have coefficients that are very close to the true values; but because x2 is missing from the link, the values of both the coefficient and x1 have been inflated.
+```{r,echo=FALSE}
+mod4 = glm(y~x1+x2, family = poisson())
+summary(mod4)
+```
+
+D. In this case I am fitting a Poisson model onto the y data that was generated using the rzippois function defined earlier. I used x1 and x2 as predictors, and they are both extremely significant in the model; however, notice that the major issue is the gigantic AIC. I calculated the AIC of the prior ZIP model--which is output below their respective model output, and neither of the three models exceeded an AIC of $3000$. This model's AIC is huge in comparison.
+```{r}
+library(MASS)
+library(foreign)
+mod5 = glm.nb(y~x1+x2)
+#summary(mod5)
+AIC(mod5)
+```
+I was able to run a negative binomial regression, but the moment I utilize the summary() function, my RMD file refuses to knit because of a prettyNum error. However, I was able to extract an AIC score, and it was bigger than the Poisson model's AIC. Clearly the Negative Binomial model and the Poisson model do not do a great job at explaining a dataset that has ZIP origins.
+\newpage
+\textbf{Problem 3:}
+```{r,echo=FALSE,include=FALSE}
+boat = Titanic <- read.csv("~/M445_HW/Titanic.csv")
+attach(boat)
+boat = na.omit(subset(boat, select = -c(Cabin)))
+boat$Embarked <- ifelse(boat$Embarked == "", NA, boat$Embarked)
+boat = na.omit(boat)
+
+pred.cols = data.frame(Pclass,Sex,Age,SibSp,Parch,Fare,Embarked)
+detach(boat)
+pred.cols = na.omit(pred.cols)
+pred.cols$Embarked <- ifelse(pred.cols$Embarked == "", NA, pred.cols$Embarked)
+pred.cols = na.omit(pred.cols)
+pred.cols$Sex <- ifelse(pred.cols$Sex == "male", 1, 0)
+```
+
+```{r, echo=FALSE, include=FALSE}
+attach(pred.cols)
+for (i in seq_along(pred.cols$Embarked)){
+  if (Embarked[i]=="S"){
+    Embarked[i] = 1
+  }
+  if (Embarked[i]=="C"){
+    Embarked[i] = 2
+  }
+  if (Embarked[i]=="Q"){
+    Embarked[i] = 3
+  }
+}
+
+pred.cols$Embarked <- Embarked
+pred.cols$Embarked <- as.integer(pred.cols$Embarked)
+
+library(fastDummies)
+pred.cols <- dummy_cols(pred.cols, select_columns = c("Embarked"))
+pred.cols = subset(pred.cols,select = -c(Embarked))
+```
+
+A. Below is the output for the kmeans() operation on the desired values from the titanic data frame.
+
+```{r}
+library(ggplot2)
+
+km = kmeans(pred.cols, centers = 2, nstart = 200)
+km$cluster <- as.factor(km$cluster)
+
+try1 = ifelse(km$cluster == 1, 1, 0)
+try2 = ifelse(km$cluster == 1, 0, 1)
+
+sum(abs(boat$Survived-try1))
+sum(abs(boat$Survived-try2))
+
+```
+
+Notice that the kmeans() clustering accurately categorized 446 of the 712 values in the Survived column
+
+B. Now I will attempt to use hclust() on the data to see if there is a comparative difference when compared to kmeans().
+```{r}
+hclustpred = hclust(dist(pred.cols))
+hclust = cutree(hclustpred, k = 2)
+
+try1 = ifelse(hclust == 1, 1, 0)
+try2 = ifelse(hclust == 1, 0, 1)
+
+sum(abs(boat$Survived-try1))
+sum(abs(boat$Survived-try2))
+```
+
+Notice that this comparison was slightly worse than the kmeans grouping. It only correctly categorized 427 of the values in the survived column of the data set.\
+\
+C. Now I will use divisive hierarchical clustering.
+```{r}
+#library(tidyverse)
+library(cluster)    
+#library(factoextra)
+#library(dendextend)
+
+diana.clust = diana(pred.cols)
+dclust <- cutree(diana.clust, k=2)
+
+try1 = ifelse(dclust == 1, 1, 0)
+try2 = ifelse(dclust == 1, 0, 1)
+
+sum(abs(boat$Survived-try1))
+sum(abs(boat$Survived-try2))
+```
+
+Comparing the divisive and agglomerative method shows that the results are the same, that is the divisive method was able to correctly categorize 427 of the values in the Survived column. In this case, kmeans is better at clustering data together than the other two methods as it got the most correct values.

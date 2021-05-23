@@ -1,0 +1,86 @@
+---
+title: 'M445 HW #9'
+author: "Erick Castillo"
+date: "5/7/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The data set used for these sets of problems is a time series regarding the amount of crimes in Chicago.\
+\
+\textbf{A.} Plot the time series data. Does the data appear to be stationary? If not, modify the data so that it is, then plot it.
+```{r,include=FALSE}
+crime <- read.csv("C:/Users/casti/Downloads/crime.csv")
+library(forecast)
+library(aTSA)
+```
+```{r}
+plot.ts(crime$Robbery)
+```
+
+The data does not appear to be stationary. It seems to be trending downwards as the weeks pass. This can be solved by differencing the data. A nifty function in R, diff(), does just this.
+```{r}
+plot.ts(diff(crime$Robbery))
+adf.test(diff(crime$Robbery))
+```
+
+Notice this new plot appears to be much more stationary than the original plot. The p-values from the ACF test also indicate that the differenced data is stationary.\
+\
+\textbf{B.} Is there a visual seasonality trend? If there is, then what model should be used to fit the data?\
+\
+The data does appear to have a seasonality trend. The original plot, the one without differencing follows a decreasing sine function pattern, with peaks and troughs which come at consistent intervals. Because of this seasonality, I would propose using either an autoregressive model AR(p) or MA(q).\
+\
+\textbf{C.} Plot the ACF and PACF of the differenced time series. After studying the plots, what model should be used?
+```{r}
+par(mfrow = c(1,2))
+acf(diff(crime$Robbery))
+pacf(diff(crime$Robbery))
+```
+
+The left plot corresponds to the ACF, the right to the PACF. Viewing these plots, we can see that the model that would best fit the data would either be an AR(2) model or an MA(1) model with a seasonality effect of 23.\
+\
+\textbf{D.} Fit an AR(1) model. Report the coefficients and use tsdiag to obtain the diagnostics plots.
+```{r}
+ts.mod1 <- arima(crime$Robbery, order = c(1,1,0))
+ts.mod1
+```
+
+The AR(1) model takes the form $X_t=\alpha X_{t-1}+\epsilon_t$. In this case, $\alpha = -0.4145$.
+```{r}
+tsdiag(ts.mod1)
+```
+
+The first two diagnostic plots look great. The last one does not. This means that there is some autocorrelation still present in the model. The model must be corrected.\
+\
+\textbf{E.} Fit a few models and compare their AIC's. Base these models of prior results. Which is the better model?
+```{r}
+ts.mod2 <- arima(crime$Robbery, order = c(1,1,0), seasonal = list(order = c(1,1,0), period = 23))
+ts.mod3 <- arima(crime$Robbery, order = c(0,1,1), seasonal = list(order = c(0,1,1), period = 23))
+ts.mod4 <- arima(crime$Robbery, order = c(0,1,1))
+ts.mod5 <- arima(crime$Robbery, order = c(0,1,1), seasonal = list(order = c(1,1,1), period = 23))
+ts.mod6 <- arima(crime$Robbery, order = c(0,1,1), seasonal = list(order = c(0,1,1), period = 12))
+
+
+AIC(ts.mod1)
+AIC(ts.mod2)
+AIC(ts.mod3)
+AIC(ts.mod4)
+AIC(ts.mod5)
+AIC(ts.mod6)
+
+tsdiag(ts.mod5)
+```
+
+Notice from the above AIC outputs that my fifth model has the smallest AIC. This is an I(1)MA(1) with a seasonality effect of period$=23$ for each the AR(1) and the MA(1). This would be my final model based solely on AIC. The diagnostics plot for this model indicate that it is healthy and useful for predictions.\
+\
+\textbf{F.} Compute and plot predictions going 52 weeks out into the future.
+```{r}
+detach("package:aTSA", unload=TRUE)
+
+pred <- forecast(ts.mod5, h = 52)
+plot(pred)
+
+```

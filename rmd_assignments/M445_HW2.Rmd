@@ -1,0 +1,62 @@
+---
+title: "Math 445 HW 2"
+author: "Erick Castillo"
+date: "2/12/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE}
+df = crabdata <- read.table("~/M445_HW/crabdata.txt", quote="\"", comment.char="")
+colnames(df)=c("Obs","C","S","W","Wt","Sa")
+df <- subset (df, select = -Obs)
+attach(df)
+```
+
+\textbf{A.} Fit the intercept only model. What does this model measure?
+```{r}
+null.mod = lm(Sa~1, data = df)
+summary(null.mod)
+```
+
+\textbf{Response:} The intercept only model has $\beta_0=2.9191$. This is the mean of the values in the Sa column.
+\newpage
+\textbf{B.} Fit a Poisson regression on W. Comment on the results and interpret the parameters.
+```{r}
+poiss.mod = glm(Sa~W, family = 'poisson', data = df)
+summary(poiss.mod)
+```
+\textbf{Response:} W has a very small p-value meaning that its presence is significant in the model. Fixing $x=0$ grants a $\lambda$ value of $e^{-3.305}$. For every one unit increase in x, the predictor variable has a multiplicative effect of $e^{0.164}$.
+\newpage
+\textbf{C.} Compute the predicted count $\hat{y}$ for each entry W of the data. Compute the sum of the residuals squared. 
+```{r}
+yhat =exp(predict(poiss.mod))
+sum((yhat-df$Sa)^2)
+```
+\textbf{Response:} The residual sum of squares is given by the $1537.33$ up above.
+\
+\
+\textbf{D.} Use the given function to predict the new dataset.
+```{r}
+newdt = data.frame(W=26.3)
+predict.glm(poiss.mod, type="response", newdata = newdt)
+```
+\textbf{Response:} The above code fixes $x_W=26.3$. When doing so, the output is basically saying, "With a carapace width of $26.3$ units, there will be approximately 3 satellites".
+\newpage
+\textbf{E.} Fit a Poisson regression model with Sa as response variable and include all other variables as predictors. Make sure to create dummy variables for C and S variables.
+```{r}
+full.poiss = glm(Sa~factor(C)+factor(S)+W+Wt, family = 'poisson', data = df)
+summary(full.poiss)
+```
+\textbf{Response:} Notice that the AIC of this model is $7$ points shorter than the model with W as the only predictor. Furthermore, the only significant predictors, based on the significance, are the factor(C)3, factor(C)4, and Wt. Because the AIC is smaller than the only W model, this model seems to be better. Maybe a negative binomial regression might be necessary for a better fit.
+\newpage
+\textbf{F.} For your model in e), test the hypothesis that the parameters for C and S are equal to 0. Comment on the results.
+```{r}
+red.mod = glm(Sa~W+Wt, family="poisson", data = df)
+anova(full.poiss, red.mod, test = 'LRT')
+```
+\textbf{Response:} The above code creates a reduced model where the dummies are dropped. Utilizing the anova function on both the full and reduced models with an LRT test, the function produces a p-value of $0.0666$. This is significant at $10\%$, thus in my case I would reject the null hypothesis. This implies neither of the dummies equal to zero.

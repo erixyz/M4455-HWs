@@ -1,0 +1,78 @@
+---
+title: "Math 445 HW 1"
+author: "Erick Castillo"
+date: "2/4/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE}
+library(MASS)
+library(mlbench)
+data(BostonHousing)
+```
+## A. 
+Below is the output for the linear model with medv as the response variable, and all other variables as predictors.
+```{r, echo=FALSE}
+full.lm = lm(medv~., data = BostonHousing)
+summary(full.lm)
+```
+The coefficients for each of the respective predictors is given under the 'Estimate' column, and the corresponding p-values are under the 'Pr(>|t|)' column.
+
+Observe that twelve predictors are significant at $1\%$. There are only two predictors that are not significant at all, these include the 'indus' and 'age' variables.
+
+The model can be improved upon. There might be multicollinearity in the model present. Dropping the insignificant variables may improve the fit. 
+
+
+## B.
+Below is the output from running an AIC model selection with a forward step. 
+```{r, echo = FALSE}
+null.lm<-lm(medv~1,data=BostonHousing)
+
+AICforward = stepAIC(null.lm,direction = 'forward',scope = list(lower = null.lm, upper = full.lm))
+```
+\
+The best model from the above output is the model with the lowest AIC, which in this case has predictors lstat, rm, ptratio, dis, nox, chas, b, zn, crim, rad, and tax.
+
+
+## C.
+Below is the output from running the stepAIC function in the backwards direction. 
+```{r, echo=FALSE}
+AICbackward = stepAIC(full.lm, direction = 'backward')
+```
+Once again, the model with the lowest AIC is the best model, which in this case has predictors crim, zn, chas, nox, rm, dis, rad, tax, ptratio, b, and lstat.
+
+Both the forward and backward selection approaches ended up at the same model.
+
+
+## D.
+Below is the plot of medv~age in a nonparametric regression. The bandwidth appears to be sufficient in predicting the response variables.
+```{r, echo=FALSE, out.height='85%', out.width='85%'}
+Y = BostonHousing$medv
+X = BostonHousing$age
+plot(X,Y)
+nonpara = ksmooth(X,Y,bandwidth=1,kernel='normal')
+lines(nonpara)
+```
+
+
+## E.
+Below is the code to create the dummy column:
+```{r}
+BostonHousing$medv.dum = ifelse(BostonHousing$medv > 30, 1, 0)
+```
+\
+Below is the output for the logistic regression
+```{r, echo=FALSE}
+logmod1 = glm(medv.dum~. -medv, data = BostonHousing, family = binomial())
+summary(logmod1)
+```
+\
+Once again, the 'Estimate' column displays the estimated coefficients for each of the predictors. This time around, eight of the twelve predictors are significant at the $10\%$ level.
+
+As expected, the more significant the variable, the more impact it has in predicting the log odds of a house being above 30 medv. This model can be improved by dropping  non-significant predictors to preserve parsimony. Once the non-significant predictors are dropped, a both direction AIC would refine the model.
+
+

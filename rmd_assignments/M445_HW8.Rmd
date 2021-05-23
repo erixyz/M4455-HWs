@@ -1,0 +1,97 @@
+---
+title: "M445 HW 8"
+author: "Erick Castillo"
+date: "4/16/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+library(naniar)
+library(visdat)
+library(ggplot2)
+library(mice)
+df = data.frame(riskfactors)
+```
+
+\textbf{Part A:} Use data visualization techniques to explore the patterns of the missing data. Write down some conclusions.
+```{r,out.width='60%',out.height='60%',fig.align='center'}
+vis_miss(df)
+gg_miss_var(df)
+
+ggplot(df, 
+       aes(x = drink_average, 
+           y = health_mental)) + 
+  geom_miss_point()
+```
+
+The above plots say a lot about the missingness of the data. The first one indicates that $14.2\%$ of the total data is missing. The second plot indicates that the top 7 columns in the data frame make up the majority of the missing data. I selected one of these arbitrarily to then created the third and final plot. This indicates that with relation to the response variable, the predictor has most of the missing values. The majority of the values present in the data frame have values greater than 0.\
+\
+\textbf{Part B:} Does the data appear to be MAR?\
+\
+Yes. There does not seem to be an apparent pattern to the missing data. This means that a variety of imputation methods may be used.\
+\
+\textbf{Part C.} Impute the missing data for the bmi column using the mean of the columns, the regression of bmi on all the diet related predictors, stochastic regression on all the diet predictors.
+```{r}
+#inputting the mean for NAs.
+mu.var <- df$bmi
+mu.var[is.na(mu.var)] <- mean(mu.var, na.rm = TRUE)
+mu.var.stats = c(mean(mu.var), sd(mu.var), cor(mu.var, df$diet_fruit, use = 'complete.obs'))
+
+#regression of bmi on all diet relate predictors
+id_na = which(is.na(df$bmi))
+data_na = df[id_na,]
+obs_data = df[-id_na,]
+
+newdata = data.frame(data_na[,6], data_na[,29:34])
+
+mod1 = lm(bmi~diet_fruit+diet_salad+diet_potato+diet_carrot+diet_vegetable+diet_juice, data = obs_data)
+predict1 = predict(mod1, newdata = newdata)
+
+reg.var <- df$bmi
+reg.var[is.na(reg.var)] <- predict1 #two cells still NA.
+reg.var.stats = c(mean(reg.var, na.rm = TRUE), sd(reg.var, na.rm = TRUE), cor(reg.var, df$diet_fruit, use = 'complete.obs'))
+
+#stochastic regression.
+cols.stoch = data.frame(df[,'bmi'], df[,29:34])
+imp.stoch = mice(cols.stoch, method = 'norm.nob', m=1, maxit=1, seed=1,print=FALSE)
+imp.cols = complete(imp.stoch)
+mice.var.stats = c(mean(imp.cols$df....bmi..), sd(imp.cols$df....bmi..), cor(imp.cols$df....bmi.., imp.cols$diet_fruit))
+
+#dataframe comparing the statistics side-by-side
+data.frame(mu.var.stats, reg.var.stats, mice.var.stats)
+```
+
+The outputted dataframe displays the mean in the first row, the standard deviation in the second, and correlation in the third. The first column pertains to simply imputing the mean, the second to regression, and the third to stochastic regression. Notice that all the rows tend to stick around the same values.\
+\
+\textbf{Part D.} Use MICE to impute the BMI column using the entire data set and $m=20$ multiple imputations.
+```{r}
+#creation of matrix. 
+df.bool <- is.na(df)
+df.bool[,-6] <- FALSE
+
+imp2 = mice(df, m=20, methods = 'pmm', maxit = 20, where = df.bool, print = FALSE)
+wholedf = complete(imp2,10)
+micewhole.var.stats = c(mean(wholedf$bmi, na.rm = TRUE), sd(wholedf$bmi, na.rm=TRUE), cor(wholedf$bmi, wholedf$diet_fruit, use = 'complete.obs'))
+
+data.frame(mu.var.stats, reg.var.stats, mice.var.stats, micewhole.var.stats)
+```
+
+Notice that the mean in this case is the same as when simply imputing the mean; however, the increase in the standard deviation indicates that the values have more variety than in all the other cases. This would be my preferred method of imputation.\
+\
+\textbf{Part E.} Now impute all the missing values using MICE, and use this dataset to run a model of my choice.
+```{r}
+imp3 = mice(df, m=1, maxit=1, seed=1, method = c('','','','pmm','pmm','pmm','polr','logreg',
+                           '','polr','','','polr','logreg','','','',
+                           'pmm','','logreg','logreg','logreg','pmm','pmm','logreg', 'polr',
+                           'logreg','polr','pmm','pmm','pmm','pmm','pmm','pmm'))
+mice_df = complete(imp3)
+mice_df$state <- as.integer(mice_df$state)
+mod2 = lm(health_mental~., data = mice_df)
+summary(mod2)
+```
+
+Notice that the above summary table is for the prediction of the response variable corresponding to mental health. There are a lot of categories in the dataframe. That's why the summary table is so long. the $R^2_{Adj} = 0.1894$ which is very small. This means that a little less than $20\%$ of the variability in the dataset is explained with this least squares model.
